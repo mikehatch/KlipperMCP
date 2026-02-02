@@ -4,8 +4,7 @@
       "command": "node",
       "args": ["dist/index.js"],
       "env": {
-        "PRINTER_VORON": "http://192.168.1.51:7125",
-        "PRINTER_SOVOL": "http://192.168.1.48:7125"
+        "PRINTER_MYPRINTER": "http://YOUR_PRINTER_IP:7125"
       }
     }
   }
