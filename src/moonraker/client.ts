@@ -5,6 +5,15 @@ import type {
   FileInfo,
   UploadResult,
   RootInfo,
+  PrinterInfo,
+  QueryResult,
+  ObjectsList,
+  GCodeFileInfo,
+  GCodeMetadata,
+  JobHistoryResult,
+  JobHistoryTotals,
+  SystemInfo,
+  ProcStats,
 } from "./types.js";
 import { logger } from "../utils/logger.js";
 
@@ -134,5 +143,169 @@ export class MoonrakerClient {
     return this.request<UploadResult>("POST", "/server/files/copy", {
       body: { source, dest },
     });
+  }
+
+  // ============================================
+  // Printer Status & Control
+  // ============================================
+
+  async getPrinterInfo(): Promise<PrinterInfo> {
+    return this.request<PrinterInfo>("GET", "/printer/info");
+  }
+
+  async queryObjects(objects: Record<string, string[] | null>): Promise<QueryResult> {
+    // Build query string for objects
+    // Format: ?extruder=temperature,target&heater_bed
+    const params: Record<string, string> = {};
+
+    for (const [obj, attrs] of Object.entries(objects)) {
+      if (attrs === null || attrs.length === 0) {
+        params[obj] = "";
+      } else {
+        params[obj] = attrs.join(",");
+      }
+    }
+
+    return this.request<QueryResult>("GET", "/printer/objects/query", {
+      query: params,
+    });
+  }
+
+  async listAvailableObjects(): Promise<ObjectsList> {
+    return this.request<ObjectsList>("GET", "/printer/objects/list");
+  }
+
+  async executeGcode(script: string): Promise<string> {
+    return this.request<string>("POST", "/printer/gcode/script", {
+      body: { script },
+    });
+  }
+
+  // ============================================
+  // Print Control
+  // ============================================
+
+  async startPrint(filename: string): Promise<void> {
+    await this.request("POST", "/printer/print/start", {
+      body: { filename },
+    });
+  }
+
+  async pausePrint(): Promise<void> {
+    await this.request("POST", "/printer/print/pause");
+  }
+
+  async resumePrint(): Promise<void> {
+    await this.request("POST", "/printer/print/resume");
+  }
+
+  async cancelPrint(): Promise<void> {
+    await this.request("POST", "/printer/print/cancel");
+  }
+
+  async emergencyStop(): Promise<void> {
+    await this.request("POST", "/printer/emergency_stop");
+  }
+
+  // ============================================
+  // GCode Files
+  // ============================================
+
+  async listGcodeFiles(): Promise<GCodeFileInfo[]> {
+    return this.request<GCodeFileInfo[]>("GET", "/server/files/list", {
+      query: { root: "gcodes" },
+    });
+  }
+
+  async getGcodeMetadata(filename: string): Promise<GCodeMetadata> {
+    return this.request<GCodeMetadata>("GET", "/server/files/metadata", {
+      query: { filename },
+    });
+  }
+
+  async getGcodeThumbnail(relativePath: string): Promise<Buffer> {
+    // Thumbnails are stored relative to the gcodes root
+    // relativePath comes from metadata.thumbnails[].relative_path
+    const url = new URL(`/server/files/gcodes/${relativePath}`, this.baseUrl);
+
+    const headers: Record<string, string> = {};
+    if (this.apiKey) {
+      headers["X-Api-Key"] = this.apiKey;
+    }
+
+    logger.debug(`[${this.printerName}] GET ${url.toString()} (thumbnail)`);
+
+    const response = await fetch(url.toString(), { headers });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new MoonrakerError(
+        `Failed to fetch thumbnail: ${response.status} ${response.statusText}`,
+        response.status,
+        errorText
+      );
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  // ============================================
+  // Job History
+  // ============================================
+
+  async getJobHistory(options?: {
+    limit?: number;
+    start?: number;
+    order?: "asc" | "desc";
+  }): Promise<JobHistoryResult> {
+    const query: Record<string, string> = {};
+    if (options?.limit !== undefined) query.limit = String(options.limit);
+    if (options?.start !== undefined) query.start = String(options.start);
+    if (options?.order) query.order = options.order;
+
+    return this.request<JobHistoryResult>("GET", "/server/history/list", {
+      query,
+    });
+  }
+
+  async getJobHistoryTotals(): Promise<JobHistoryTotals> {
+    const result = await this.request<{ job_totals: JobHistoryTotals }>(
+      "GET",
+      "/server/history/totals"
+    );
+    return result.job_totals;
+  }
+
+  // ============================================
+  // System Info
+  // ============================================
+
+  async getSystemInfo(): Promise<SystemInfo> {
+    const result = await this.request<{ system_info: SystemInfo }>(
+      "GET",
+      "/machine/system_info"
+    );
+    return result.system_info;
+  }
+
+  async getProcStats(): Promise<ProcStats> {
+    return this.request<ProcStats>("GET", "/machine/proc_stats");
+  }
+
+  // ============================================
+  // Service Control
+  // ============================================
+
+  async restartKlipper(): Promise<void> {
+    await this.request("POST", "/printer/restart");
+  }
+
+  async firmwareRestart(): Promise<void> {
+    await this.request("POST", "/printer/firmware_restart");
+  }
+
+  async restartMoonraker(): Promise<void> {
+    await this.request("POST", "/server/restart");
   }
 }
