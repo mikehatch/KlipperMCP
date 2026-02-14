@@ -22,10 +22,22 @@ export class MoonrakerClient {
   private apiKey?: string;
   public readonly printerName: string;
 
+  static readonly DEFAULT_TIMEOUT_MS = 30_000;
+  private requestTimeoutMs: number;
+
   constructor(printerConfig: PrinterConfig) {
     this.printerName = printerConfig.name;
     this.baseUrl = printerConfig.url.replace(/\/$/, "");
     this.apiKey = printerConfig.apiKey;
+    this.requestTimeoutMs = MoonrakerClient.DEFAULT_TIMEOUT_MS;
+  }
+
+  get timeoutMs(): number {
+    return this.requestTimeoutMs;
+  }
+
+  set timeoutMs(value: number) {
+    this.requestTimeoutMs = Math.max(1000, value);
   }
 
   private async request<T>(
@@ -35,6 +47,7 @@ export class MoonrakerClient {
       body?: unknown;
       query?: Record<string, string>;
       isFormData?: boolean;
+      timeoutMs?: number;
     } = {}
   ): Promise<T> {
     const url = new URL(path, this.baseUrl);
@@ -69,7 +82,22 @@ export class MoonrakerClient {
 
     logger.debug(`[${this.printerName}] ${method} ${url.toString()}`);
 
-    const response = await fetch(url.toString(), fetchOptions);
+    const timeout = options.timeoutMs ?? this.requestTimeoutMs;
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        ...fetchOptions,
+        signal: AbortSignal.timeout(timeout),
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        throw new MoonrakerError(
+          `Moonraker request timed out after ${timeout / 1000}s: ${method} ${path}`,
+          408
+        );
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -235,7 +263,21 @@ export class MoonrakerClient {
 
     logger.debug(`[${this.printerName}] GET ${url.toString()} (thumbnail)`);
 
-    const response = await fetch(url.toString(), { headers });
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        headers,
+        signal: AbortSignal.timeout(this.requestTimeoutMs),
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        throw new MoonrakerError(
+          `Thumbnail request timed out after ${this.requestTimeoutMs / 1000}s`,
+          408
+        );
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

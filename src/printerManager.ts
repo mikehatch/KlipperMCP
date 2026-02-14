@@ -1,4 +1,4 @@
-import { Config, PrinterConfig } from "./config.js";
+import { Config } from "./config.js";
 import { MoonrakerClient } from "./moonraker/client.js";
 
 export class PrinterManager {
@@ -67,10 +67,4 @@ export class PrinterManager {
     return this.config.defaultPrinter;
   }
 
-  /**
-   * Check if write confirmation is required
-   */
-  isWriteConfirmationRequired(): boolean {
-    return this.config.writeConfirmationRequired;
-  }
 }

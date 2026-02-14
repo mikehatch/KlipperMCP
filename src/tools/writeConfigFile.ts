@@ -19,55 +19,18 @@ export const writeConfigFileSchema = {
     .optional()
     .default(true)
     .describe("Create a backup of the existing file before overwriting"),
-  confirmed: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe(
-      "Set to true to confirm the write operation. First call without this to preview changes."
-    ),
 };
 
 export type WriteConfigFileParams = z.infer<
   z.ZodObject<typeof writeConfigFileSchema>
 >;
 
-function generateSimpleDiff(oldContent: string, newContent: string): string {
-  const oldLines = oldContent.split("\n");
-  const newLines = newContent.split("\n");
-
-  const added = newLines.length - oldLines.length;
-  const addedText = added > 0 ? `+${added}` : added < 0 ? `${added}` : "0";
-
-  // Find changed sections
-  const oldSections = oldLines
-    .filter((l) => l.trim().startsWith("[") && l.trim().endsWith("]"))
-    .map((l) => l.trim());
-  const newSections = newLines
-    .filter((l) => l.trim().startsWith("[") && l.trim().endsWith("]"))
-    .map((l) => l.trim());
-
-  const addedSections = newSections.filter((s) => !oldSections.includes(s));
-  const removedSections = oldSections.filter((s) => !newSections.includes(s));
-
-  let summary = `Lines: ${oldLines.length} → ${newLines.length} (${addedText})`;
-
-  if (addedSections.length > 0) {
-    summary += `\nNew sections: ${addedSections.join(", ")}`;
-  }
-  if (removedSections.length > 0) {
-    summary += `\nRemoved sections: ${removedSections.join(", ")}`;
-  }
-
-  return summary;
-}
-
 export async function writeConfigFile(
   printerManager: PrinterManager,
   params: WriteConfigFileParams
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   try {
-    const { printer, filename, content, createBackup = true, confirmed = false } = params;
+    const { printer, filename, content, createBackup = true } = params;
 
     // Get the client for the specified printer
     const client = printerManager.getClient(printer);
@@ -96,37 +59,10 @@ export async function writeConfigFile(
       }
     }
 
-    // If confirmation is required and not confirmed, return preview
-    if (printerManager.isWriteConfirmationRequired() && !confirmed) {
-      const preview: Record<string, unknown> = {
-        printer: client.printerName,
-        action: existingContent ? "update" : "create",
-        filename,
-        currentSize: existingContent?.length ?? 0,
-        newSize: content.length,
-        willCreateBackup: createBackup && !!existingContent,
-        message:
-          "Please confirm this write operation by calling again with confirmed: true",
-      };
-
-      if (existingContent) {
-        preview.diff = generateSimpleDiff(existingContent, content);
-      }
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(preview, null, 2),
-          },
-        ],
-      };
-    }
-
     // Create backup if requested and file exists
+    // Uses .bkp extension which Mainsail hides when "hide backup files" is enabled
     if (createBackup && existingContent) {
-      const timestamp = Date.now();
-      const backupName = `${filename}.backup.${timestamp}`;
+      const backupName = `${filename}.bkp`;
       logger.info(`[${client.printerName}] Creating backup: ${backupName}`);
       await client.uploadFile("config", backupName, existingContent);
     }

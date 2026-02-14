@@ -5,7 +5,7 @@ import { registerTools } from "./tools/index.js";
 
 export function createServer(config: Config): McpServer {
   const server = new McpServer({
-    name: "klipper-mcp-server",
+    name: "klipper-mcp",
     version: "1.0.0",
   });
 

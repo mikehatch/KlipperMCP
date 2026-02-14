@@ -18,6 +18,10 @@ import {
   writeConfigFile,
 } from "./writeConfigFile.js";
 import {
+  renameConfigFileSchema,
+  renameConfigFile,
+} from "./renameConfigFile.js";
+import {
   searchConfigsSchema,
   searchConfigs,
 } from "./searchConfigs.js";
@@ -97,9 +101,16 @@ export function registerTools(
 
   server.tool(
     "write_config_file",
-    "Write or update a Klipper configuration file. Requires confirmation for safety. Creates automatic backups. Specify printer name or uses default.",
+    "Write or update a Klipper configuration file. Creates automatic .bkp backups. Specify printer name or uses default.",
     writeConfigFileSchema,
     async (params) => writeConfigFile(printerManager, params)
+  );
+
+  server.tool(
+    "rename_config_file",
+    "Rename or move a Klipper configuration file. Uses Moonraker's native move API. Specify printer name or uses default.",
+    renameConfigFileSchema,
+    async (params) => renameConfigFile(printerManager, params)
   );
 
   server.tool(

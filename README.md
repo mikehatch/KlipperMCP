@@ -15,7 +15,7 @@ With it, you can ask Claude to evaluate your configuration, write macros, monito
 
 - **Multi-printer support** - Configure multiple printers and reference them by name
 - **Read configuration files** - View printer.cfg and all included config files
-- **Write with safety** - Two-phase confirmation and automatic backups before changes
+- **Write with safety** - Automatic `.bkp` backups before changes
 - **Search across configs** - Find settings across all configuration files
 - **Printer status monitoring** - Query temperatures, position, and print progress
 - **GCode execution** - Run GCode commands with safety checks for dangerous operations
@@ -36,8 +36,8 @@ With it, you can ask Claude to evaluate your configuration, write macros, monito
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/mikehatch/KlipperClaudeMCP.git
-   cd KlipperClaudeMCP
+   git clone https://github.com/mikehatch/KlipperMCP.git
+   cd KlipperMCP
    ```
 
 2. **Install dependencies**
@@ -61,7 +61,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
   "mcpServers": {
     "klipper": {
       "command": "node",
-      "args": ["/path/to/KlipperClaudeMCP/dist/index.js"],
+      "args": ["/path/to/KlipperMCP/dist/index.js"],
       "env": {
         "PRINTER_VORON": "http://192.168.1.100:7125",
         "PRINTER_ENDER": "http://192.168.1.101:7125"
@@ -101,7 +101,6 @@ Edit `.vscode/mcp.json` with your printer details:
 | `PRINTER_<NAME>_API_KEY` | Optional API key if Moonraker requires authentication |
 | `MOONRAKER_URL` | Legacy single-printer mode (still supported) |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, `error` (default: `info`) |
-| `WRITE_CONFIRMATION_REQUIRED` | Require confirmation for writes (default: `true`) |
 
 ## Available Tools
 
@@ -112,7 +111,7 @@ Edit `.vscode/mcp.json` with your printer details:
 | `list_printers` | List all configured printers and their URLs |
 | `list_config_files` | List configuration files in the config directory |
 | `read_config_file` | Read the contents of a configuration file |
-| `write_config_file` | Write or update a configuration file (with confirmation) |
+| `write_config_file` | Write or update a configuration file (with automatic backups) |
 | `search_configs` | Search for patterns across all configuration files |
 | `get_config_info` | Get detailed info about a file including sections and includes |
 
@@ -156,10 +155,11 @@ The template evaluator supports:
 
 Dangerous operations require explicit confirmation:
 
-- **GCode execution** - Commands that heat, move, or could damage the printer show warnings and require `confirmed: true`
-- **Emergency stop** - Always requires confirmation
+- **GCode execution** - Commands that heat, move, or could damage the printer show warnings
+- **Emergency stop** - Requires confirmation
 - **Print cancellation** - Requires confirmation to prevent accidental job loss
 - **Service restarts** - Klipper, firmware, and Moonraker restarts require confirmation
+- **Config writes** - Automatic backups using `.bkp` extension (hidden by Mainsail's "hide backup files" option)
 
 Dangerous GCode patterns detected include:
 - Heating commands (M104, M109, M140, M190)

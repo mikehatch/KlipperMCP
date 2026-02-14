@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 export interface PrinterConfig {
   name: string;
   url: string;
@@ -10,7 +8,6 @@ export interface Config {
   printers: Map<string, PrinterConfig>;
   defaultPrinter: string | null;
   logLevel: "debug" | "info" | "warn" | "error";
-  writeConfirmationRequired: boolean;
 }
 
 export function loadConfig(): Config {
@@ -49,14 +46,11 @@ export function loadConfig(): Config {
   const defaultPrinter = printers.has("default") ? "default" : printerNames[0];
 
   const logLevel = (process.env.LOG_LEVEL as Config["logLevel"]) || "info";
-  const writeConfirmationRequired =
-    process.env.WRITE_CONFIRMATION_REQUIRED !== "false";
 
   return {
     printers,
     defaultPrinter,
     logLevel,
-    writeConfirmationRequired,
   };
 }
 
