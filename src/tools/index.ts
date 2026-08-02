@@ -69,6 +69,14 @@ import {
   restartServicesSchema,
   restartServices,
 } from "./restartServices.js";
+import {
+  listLogFilesSchema,
+  listLogFiles,
+} from "./listLogFiles.js";
+import {
+  getLogFileSchema,
+  getLogFile,
+} from "./getLogFile.js";
 
 export function registerTools(
   server: McpServer,
@@ -133,7 +141,7 @@ export function registerTools(
 
   server.tool(
     "get_printer_status",
-    "Query printer status including temperatures, position, print progress. Optionally specify which objects to query.",
+    "Query printer status including temperatures, position, print progress. Optionally specify which objects to query. If the printer is in an error or shutdown state, use get_log_file to check klippy.log for details.",
     getPrinterStatusSchema,
     async (params) => getPrinterStatus(printerManager, params)
   );
@@ -194,7 +202,7 @@ export function registerTools(
 
   server.tool(
     "get_print_history",
-    "Query print job history and statistics. Returns recent jobs with status, duration, and filament used.",
+    "Query print job history and statistics. Returns recent jobs with status, duration, and filament used. For failed prints, use get_log_file to search klippy.log for errors around the failure time.",
     getPrintHistorySchema,
     async (params) => getPrintHistory(printerManager, params)
   );
@@ -208,6 +216,24 @@ export function registerTools(
     "Get system information including CPU, memory, network, and live process stats.",
     getSystemInfoSchema,
     async (params) => getSystemInfo(printerManager, params)
+  );
+
+  // ============================================
+  // Log File Access & Troubleshooting
+  // ============================================
+
+  server.tool(
+    "list_log_files",
+    "List available log files (klippy.log, moonraker.log, etc.) from the printer. Use get_log_file to read contents.",
+    listLogFilesSchema,
+    async (params) => listLogFiles(printerManager, params)
+  );
+
+  server.tool(
+    "get_log_file",
+    "Read log file content with optional tail and search filtering. Use list_log_files first to see available files. Essential for troubleshooting printer errors, shutdowns, and failed prints.",
+    getLogFileSchema,
+    async (params) => getLogFile(printerManager, params)
   );
 
   // ============================================
